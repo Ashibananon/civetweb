@@ -16,6 +16,12 @@ out
 examples/embedded_c/embedded_c
 *.a
 *.o
+*.so
+
+Install/
+src/web_servlets/
+src/ashiba_web_servlets/
+
 
 ################# //hash
 ## CMake
