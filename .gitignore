@@ -24,6 +24,11 @@ src/web_servlets/
 src/ashiba_web_servlets/
 VisualStudio/unit_test/*
 log.out
+*.so
+
+Install/
+src/web_servlets/
+src/ashiba_web_servlets/
 
 
 ################# //hash
