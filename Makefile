@@ -67,7 +67,11 @@ endif
 # only set main compile options if none were chosen
 CFLAGS += -Wall -Wextra -Wshadow -Wformat-security -Winit-self -Wmissing-prototypes -D$(TARGET_OS) -Iinclude $(COPT) -DUSE_STACK_SIZE=$(USE_STACK_SIZE)
 
-LIBS = -lpthread -lm
+ifdef WITH_CFLAGS
+  CFLAGS += $(WITH_CFLAGS)
+endif
+
+LIBS = -lpthread -lm $(LOPT)
 
 ifdef WITH_DEBUG
   CFLAGS += -g -DDEBUG
@@ -81,7 +85,7 @@ else ifdef TEST_FUZZ
   CXX = clang++
   BUILD_DIRS += $(BUILD_DIR)/fuzztest
   APP_SOURCES = fuzztest/fuzzmain.c
-  OBJECTS = $(LIB_SOURCES:.c=.o) $(APP_SOURCES:.c=.o) 
+  OBJECTS = $(LIB_SOURCES:.c=.o) $(APP_SOURCES:.c=.o)
   CFLAGS += -DTEST_FUZZ$(TEST_FUZZ)
 else
   CFLAGS += -O2 -DNDEBUG
@@ -89,6 +93,16 @@ endif
 
 ifdef NO_SSL
   CFLAGS += -DNO_SSL
+else ifdef WITH_MBEDTLS
+  CFLAGS += -DUSE_MBEDTLS
+  LIBS += -lmbedcrypto -lmbedtls -lmbedx509
+else ifdef WITH_OPENSSL_API_1_0
+  CFLAGS += -DOPENSSL_API_1_0
+else ifdef WITH_OPENSSL_API_1_1
+  CFLAGS += -DOPENSSL_API_1_1
+else
+  #Use OpenSSL 1.1 API version as default
+  CFLAGS += -DOPENSSL_API_1_1
 endif
 ifdef NO_CGI
   CFLAGS += -DNO_CGI
@@ -106,6 +120,7 @@ else
   LCC = $(CC)
 endif
 
+
 ifdef WITH_ALL
   WITH_WEBSOCKET = 1
   WITH_IPV6 = 1
@@ -113,6 +128,8 @@ ifdef WITH_ALL
   WITH_DUKTAPE = 1
   WITH_SERVER_STATS = 1
   WITH_ZLIB = 1
+  WITH_HTTP2 = 1
+  WITH_X_DOM_SOCKET = 1
   WITH_EXPERIMENTAL = 1
   #WITH_CPP is not defined, ALL means only real features, not wrappers
 endif
@@ -163,6 +180,10 @@ ifdef WITH_ZLIB
   CFLAGS += -DUSE_ZLIB
 endif
 
+ifdef WITH_HTTP2
+  CFLAGS += -DUSE_HTTP2
+endif
+
 # Other features
 ifdef WITH_EXPERIMENTAL
   CFLAGS += -DMG_EXPERIMENTAL_INTERFACES
@@ -177,6 +198,12 @@ ifdef WITH_WEBSOCKET
 endif
 ifdef WITH_WEBSOCKETS
   CFLAGS += -DUSE_WEBSOCKET
+endif
+ifdef WITH_X_DOM_SOCKET
+  CFLAGS += -DUSE_X_DOM_SOCKET
+endif
+ifdef WITH_X_DOM_SOCKETS
+  CFLAGS += -DUSE_X_DOM_SOCKET
 endif
 
 ifdef WITH_SERVER_STAT
@@ -268,6 +295,9 @@ help:
 	@echo "   WITH_CPP=1            build library with c++ classes"
 	@echo "   WITH_EXPERIMENTAL=1   build with experimental features"
 	@echo "   WITH_DAEMONIZE=1      build with daemonize."
+	@echo "   WITH_MBEDTLS=1        build with mbedTLS support.
+	@echo "   WITH_OPENSSL_API_1_0=1  build with OpenSSL 1.0.x support."
+	@echo "   WITH_OPENSSL_API_1_1=1  build with OpenSSL 1.1.x support."
 	@echo "   NO_SSL=1              build without SSL support. Build will not need libcrypto/libssl."
 	@echo "   NO_CGI=1              build without CGI support."
 	@echo "   NO_CACHING=1          disable caching. Send no-cache/no-store headers."
@@ -280,6 +310,7 @@ help:
 	@echo "   CRYPTO_LIB=libcrypto.so.0 system versioned CRYPTO library"
 	@echo "   PREFIX=/usr/local     sets the install directory"
 	@echo "   COPT='-DNO_SSL'       method to insert compile flags"
+	@echo "   LOPT='-lxxx'          method to link xxx library"
 	@echo ""
 	@echo " Compile Flags"
 	@echo "   NDEBUG                strip off all debug code"
@@ -377,7 +408,7 @@ lib$(CPROG).so: CFLAGS += -fPIC
 lib$(CPROG).so: $(LIB_OBJECTS)
 	$(eval version=$(shell grep -w "define CIVETWEB_VERSION" include/civetweb.h | sed 's|.*VERSION "\(.*\)"|\1|g'))
 	$(eval major=$(shell echo $(version) | cut -d'.' -f1))
-	$(LCC) -shared -Wl,-soname,$@.$(major) -o $@.$(version).0 $(CFLAGS) $(LDFLAGS) $(LIB_OBJECTS)
+	$(LCC) -shared -Wl,-soname,$@.$(major) -o $@.$(version).0 $(CFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
 	ln -s -f $@.$(major) $@
 	ln -s -f $@.$(version).0 $@.$(major)
 
